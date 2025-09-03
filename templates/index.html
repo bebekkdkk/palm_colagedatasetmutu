@@ -251,7 +251,7 @@
 
     <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
         <div class="container">
-            <a class="navbar-brand fw-bold" href="#">
+            <a class="navbar-brand fw-bold" href="/">
                 <i class="bi bi-camera text-primary me-2"></i>
                 Palm Oil Detector
             </a>
@@ -259,7 +259,21 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/">
+                            <i class="bi bi-house-door me-1"></i>
+                            Home
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/history">
+                            <i class="bi bi-clock-history me-1"></i>
+                            History
+                        </a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav">
                     <li class="nav-item">
                         <a class="nav-link" href="#uploadSection">
                             <i class="bi bi-image me-1"></i>
@@ -517,6 +531,8 @@
             toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
         }
 
+        let originalImageBase64 = ''; // Tambahkan variabel untuk menyimpan gambar asli
+
         document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData();
@@ -527,7 +543,15 @@
                 return;
             }
 
-            formData.append('file', fileInput.files[0]);
+            // Save original image as base64
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            reader.onloadend = function() {
+                originalImageBase64 = reader.result;
+            };
+            reader.readAsDataURL(file);
+
+            formData.append('file', file);
             showLoading(true);
 
             try {
@@ -554,24 +578,20 @@
                 processedImage.style.opacity = '0';
                 processedImage.removeAttribute('src');
                 
-                // Set the new image source (use detection_path for bounding box result)
-                const imagePath = `static/${data.detection_path}`;
+                // Set the new image source (use detection_image for bounding box result)
+                const imageData = data.detection_image;
 
-                // Create a new image object to verify the image loads correctly
-                const tempImage = new Image();
-                tempImage.onload = function() {
-                    processedImage.src = imagePath;
-                    setTimeout(() => {
-                        processedImage.style.transition = 'opacity 0.5s';
-                        processedImage.style.opacity = '1';
-                    }, 100);
-                };
-                tempImage.onerror = function() {
-                    console.error('Failed to load image:', imagePath);
+                // Set the image source directly as it's already a base64 data URL
+                processedImage.src = imageData;
+                setTimeout(() => {
+                    processedImage.style.transition = 'opacity 0.5s';
+                    processedImage.style.opacity = '1';
+                }, 100);
+                processedImage.onerror = function() {
+                    console.error('Failed to load detection image');
                     showToast('Failed to load detection image', 'danger');
                     document.getElementById('imagePlaceholder').classList.remove('d-none');
                 };
-                tempImage.src = imagePath;
                 
                 // Update detection count with animation
                 const detectionCount = document.getElementById('detectionCount');
@@ -710,44 +730,45 @@
         }
 
         async function submitAllClasses() {
-            const cropCards = document.querySelectorAll('.crop-card');
-            let processed = 0;
-            let errors = 0;
-
-            for (const card of cropCards) {
-                try {
-                    const cropPath = card.querySelector('.class-buttons').dataset.cropPath;
-                    const currentLabel = card.querySelector('.current-label').textContent;
-                    
-                    const response = await fetch('/save_crop', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            crop_path: cropPath,
-                            class_name: currentLabel
-                        })
-                    });
-                    
-                    const data = await response.json();
-                    if (data.success) {
-                        processed++;
-                        card.classList.add('saved');
-                    } else {
-                        errors++;
-                    }
-                } catch (error) {
-                    console.error('Error saving crop:', error);
-                    errors++;
+            try {
+                const processedImage = document.getElementById('processedImage');
+                const cropCards = document.querySelectorAll('.crop-card');
+                
+                // Get original image from our saved base64
+                const originalImageData = originalImageBase64;
+                // Get detection image (which is the current processed image with bounding boxes)
+                const detectionImageData = processedImage.src;
+                
+                // Get all crops with their current classifications
+                const crops = Array.from(cropCards).map(card => ({
+                    image_data: card.querySelector('.class-buttons').dataset.cropPath,
+                    label: card.querySelector('.current-label').textContent
+                }));
+                
+                // Send all data to the backend
+                const response = await fetch('/save_all_classifications', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        original_image: originalImageData,
+                        detection_image: detectionImageData,
+                        crops: crops
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    showToast('Successfully saved all classifications!');
+                    // Mark all cards as saved
+                    cropCards.forEach(card => card.classList.add('saved'));
+                } else {
+                    throw new Error(data.error || 'Failed to save classifications');
                 }
-            }
-
-            if (processed > 0) {
-                showToast(`Successfully saved ${processed} crops to their respective folders`);
-            }
-            if (errors > 0) {
-                showToast(`Failed to save ${errors} crops`, 'danger');
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('Failed to save classifications: ' + error.message, 'danger');
             }
         }
     </script>
@@ -764,6 +785,7 @@
         }
         .crop-card.saved {
             border: 2px solid var(--bs-success);
+            position: relative;
         }
         .crop-card.saved::after {
             content: '✓';
@@ -780,6 +802,58 @@
             justify-content: center;
             font-size: 14px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            animation: popIn 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+        @keyframes popIn {
+            0% {
+                transform: scale(0);
+                opacity: 0;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        .checkmark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 60px;
+            background: rgba(40, 167, 69, 0.9);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 30px;
+            animation: checkmarkAppear 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+            pointer-events: none;
+        }
+        .checkmark::after {
+            content: '✓';
+        }
+        @keyframes checkmarkAppear {
+            0% {
+                transform: translate(-50%, -50%) scale(0);
+                opacity: 0;
+            }
+            70% {
+                transform: translate(-50%, -50%) scale(1.2);
+                opacity: 0.7;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 0;
+            }
+        }
+        .btn-success:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        .btn-outline-success {
+            pointer-events: none;
         }
     </style>
 </body>

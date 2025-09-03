@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detection Details - Palm Oil Detection System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #0d6efd;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --border-radius: 8px;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa;
+        }
+
+        .card {
+            border-radius: var(--border-radius);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+            margin-bottom: 20px;
+        }
+
+        .crop-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .crop-card {
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: var(--border-radius);
+            background: white;
+            transition: transform 0.2s;
+        }
+
+        .crop-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .crop-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: calc(var(--border-radius) - 4px);
+        }
+
+        .classification-badge {
+            font-size: 0.85rem;
+            padding: 5px 10px;
+            border-radius: 20px;
+        }
+
+        .confidence-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in-up {
+            animation: fadeInUp 0.3s ease-out forwards;
+        }
+
+        .list-group-item {
+            transition: background-color 0.2s;
+        }
+
+        .list-group-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .btn-group .btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .btn-group .btn i {
+            font-size: 0.75rem;
+        }
+
+        .class-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .class-button {
+            font-size: 0.85rem;
+            font-weight: 500;
+            padding: 0.5rem;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .class-button:hover {
+            transform: translateY(-1px);
+        }
+
+        .class-button.active {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container py-4">
+        <div class="card">
+            <div class="card-header bg-white py-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-camera me-2"></i>Detection Details
+                    </h5>
+                    <div class="btn-group">
+                        <button class="btn btn-outline-primary btn-sm" onclick="window.location.reload()">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                        </button>
+                        <button onclick="window.location.href='/history'" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-arrow-left me-1"></i>Back to History
+                        </button>
+                    </div>
+                </div>
+            </div>
+                
+            <!-- Detection Image Section -->
+            <div class="card-body">
+                <div class="row g-4">
+                    <div class="col-lg-8">
+                        <!-- Original Image Card -->
+                        <div class="card mb-4 fade-in-up">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span>
+                                    <i class="bi bi-image me-2"></i>Original Image
+                                </span>
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="toggleFullscreen('originalImage')">
+                                        <i class="bi bi-arrows-fullscreen"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-success" onclick="downloadImage('originalImage')">
+                                        <i class="bi bi-download"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="rotateImage('originalImage')">
+                                        <i class="bi bi-arrow-clockwise"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body text-center">
+                                <img id="originalImage" class="img-fluid rounded" style="max-height: 400px; object-fit: contain;" alt="Original Image">
+                            </div>
+                        </div>
+
+                        <!-- Detection Results Card -->
+                        <div class="card mb-4 fade-in-up" style="animation-delay: 0.1s;">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span>
+                                    <i class="bi bi-box me-2"></i>Detection Results
+                                </span>
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="toggleFullscreen('detectionImage')">
+                                        <i class="bi bi-arrows-fullscreen"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-success" onclick="downloadImage('detectionImage')">
+                                        <i class="bi bi-download"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="rotateImage('detectionImage')">
+                                        <i class="bi bi-arrow-clockwise"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body text-center">
+                                <img id="detectionImage" class="img-fluid rounded" style="max-height: 400px; object-fit: contain;" alt="Detection Results">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-4">
+                        <!-- Detection Summary -->
+                        <div class="card mb-4 fade-in-up" style="animation-delay: 0.2s;">
+                            <div class="card-header">
+                                <i class="bi bi-pie-chart me-2"></i>Detection Summary
+                            </div>
+                            <div class="card-body p-0">
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <span>Total Detections</span>
+                                        <span id="totalDetections" class="badge bg-primary rounded-pill">0</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <span>Abnormal</span>
+                                        <span id="abnormalCount" class="badge bg-warning rounded-pill">0</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <span>Empty</span>
+                                        <span id="emptyCount" class="badge bg-secondary rounded-pill">0</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <span>Overripe</span>
+                                        <span id="overripeCount" class="badge bg-danger rounded-pill">0</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <span>Ripe</span>
+                                        <span id="ripeCount" class="badge bg-success rounded-pill">0</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <span>Rotten</span>
+                                        <span id="rottenCount" class="badge bg-dark rounded-pill">0</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <span>Unripe</span>
+                                        <span id="unripeCount" class="badge bg-info rounded-pill">0</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Quick Actions -->
+                        <div class="card fade-in-up" style="animation-delay: 0.3s;">
+                            <div class="card-header">
+                                <i class="bi bi-lightning me-2"></i>Quick Actions
+                            </div>
+                            <div class="card-body">
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-outline-primary btn-sm" onclick="downloadAllImages()">
+                                        <i class="bi bi-download me-1"></i>Download All Images
+                                    </button>
+                                    <button class="btn btn-outline-info btn-sm" onclick="showAnalytics()">
+                                        <i class="bi bi-graph-up me-1"></i>View Analytics
+                                    </button>
+                                    <button class="btn btn-outline-success btn-sm" onclick="exportReport()">
+                                        <i class="bi bi-file-earmark-text me-1"></i>Export Report
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Individual Crops Section -->
+                <div class="mt-4 fade-in-up" style="animation-delay: 0.4s;">
+                    <h5 class="mb-3">
+                        <i class="bi bi-grid me-2"></i>Individual Crop Results
+                        <div class="float-end">
+                            <button class="btn btn-sm btn-outline-primary" onclick="toggleGridView()">
+                                <i class="bi bi-grid me-1"></i>Toggle View
+                            </button>
+                            <button class="btn btn-sm btn-outline-success ms-1" onclick="downloadAllCrops()">
+                                <i class="bi bi-download me-1"></i>Download All
+                            </button>
+                        </div>
+                    </h5>
+                    <div id="cropGrid" class="crop-grid">
+                        <!-- Crops will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Get ID from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const imageId = urlParams.get('id');
+        let currentRotation = 0;
+
+        function loadDetails() {
+            if (!imageId) {
+                showToast('No image ID provided', 'danger');
+                return;
+            }
+
+            fetch('/static/uploads/database.txt')
+                .then(response => response.json())
+                .then(database => {
+                    // Filter entries for this image ID
+                    const entries = database.filter(entry => entry.file_name.startsWith(imageId));
+                    if (entries.length === 0) {
+                        showToast('Image not found', 'danger');
+                        return;
+                    }
+
+                    // Create data object for display
+                    const originalImage = entries.find(e => e.place === '-');
+                    const detectionImage = entries.find(e => e.place === 0);
+                    const cropImages = entries.filter(e => typeof e.place === 'number' && e.place > 0);
+
+                    const data = {
+                        original_image: `/static/uploads/${originalImage.file_name}`,
+                        detection_image: `/static/uploads/${detectionImage.file_name}`,
+                        total_detections: cropImages.length,
+                        crops: cropImages.map(crop => ({
+                            place: crop.place,
+                            image: `/static/uploads/${crop.file_name}`,
+                            classification: crop.class_result,
+                            valid_status: crop.valid_status
+                        })),
+                        summary: cropImages.reduce((acc, curr) => {
+                            acc[curr.class_result] = (acc[curr.class_result] || 0) + 1;
+                            return acc;
+                        }, {})
+                    };
+
+                    displayDetails(data);
+                })
+                .catch(error => {
+                    showToast('Error loading details: ' + error, 'danger');
+                });
+        }
+
+        function displayDetails(data) {
+            // Set images
+            document.getElementById('originalImage').src = data.original_image;
+            document.getElementById('detectionImage').src = data.detection_image;
+            
+            // Update total detections
+            document.getElementById('totalDetections').textContent = data.total_detections;
+            
+            // Reset all counters
+            const categories = ['abnormal', 'empty', 'overripe', 'ripe', 'rotten', 'unripe'];
+            categories.forEach(category => {
+                document.getElementById(`${category}Count`).textContent = '0';
+            });
+            
+            // Update classification counts
+            for (const [category, count] of Object.entries(data.summary)) {
+                const elementId = `${category.toLowerCase()}Count`;
+                const element = document.getElementById(elementId);
+                if (element) {
+                    element.textContent = count;
+                }
+            }
+            
+            // Display crops
+            const cropGrid = document.getElementById('cropGrid');
+            cropGrid.innerHTML = '';
+
+            data.crops.forEach((crop, index) => {
+                const card = document.createElement('div');
+                card.className = 'crop-card fade-in-up';
+                card.style.animationDelay = `${0.1 * index}s`;
+                
+                card.innerHTML = `
+                    <div class="position-relative mb-2">
+                        <img src="${crop.image}" class="crop-image" alt="Crop ${crop.place}"
+                             onclick="toggleFullscreen('crop_${crop.place}')">
+                        ${crop.valid_status ? `
+                        <span class="confidence-badge">
+                            <i class="bi bi-check-circle-fill me-1"></i>
+                            Valid
+                        </span>
+                        ` : ''}
+                        <div class="position-absolute bottom-0 start-0 m-2">
+                            <span class="badge bg-secondary">#${crop.place}</span>
+                        </div>
+                        <div class="position-absolute bottom-0 end-0 m-2">
+                            <span class="badge bg-${getClassColor(crop.classification)}">${crop.classification}</span>
+                        </div>
+                    </div>
+                    <div class="btn-group w-100 mb-2">
+                        <button class="btn btn-sm btn-outline-primary" onclick="toggleFullscreen('crop_${crop.place}')">
+                            <i class="bi bi-arrows-fullscreen"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-success" onclick="downloadImage('crop_${crop.place}')">
+                            <i class="bi bi-download"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="validateCrop('${imageId}', ${crop.place})" ${crop.valid_status ? 'disabled' : ''}>
+                            <i class="bi bi-check2"></i>
+                        </button>
+                    </div>
+                    <div class="class-buttons">
+                        ${["Abnormal", "Empty", "Overripe", "Ripe", "Rotten", "Unripe"]
+                            .map(cls => `
+                                <button class="btn btn-sm ${cls === crop.classification ? `btn-${getClassColor(cls)}` : 'btn-outline-secondary'} class-button" 
+                                        onclick="validateClass(${crop.place}, '${cls}')"
+                                        type="button">
+                                    ${cls}
+                                </button>
+                            `).join('')}
+                    </div>
+                `;
+                cropGrid.appendChild(card);
+                
+                // Add hidden image element for fullscreen/download
+                const img = document.createElement('img');
+                img.id = `crop_${crop.place}`;
+                img.src = crop.image;
+                img.style.display = 'none';
+                document.body.appendChild(img);
+            });
+        }
+
+        function getClassColor(label) {
+            const colors = {
+                'Abnormal': 'warning',
+                'Empty': 'secondary',
+                'Overripe': 'danger',
+                'Ripe': 'success',
+                'Rotten': 'dark',
+                'Unripe': 'primary'
+            };
+            return colors[label] || 'info';
+        }
+
+        function toggleFullscreen(imageId) {
+            const img = document.getElementById(imageId);
+            if (!document.fullscreenElement) {
+                if (img.requestFullscreen) {
+                    img.requestFullscreen();
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+
+        function downloadImage(imageId) {
+            const img = document.getElementById(imageId);
+            const link = document.createElement('a');
+            link.href = img.src;
+            link.download = `palm-oil-${imageId}.jpg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function rotateImage(imageId) {
+            const img = document.getElementById(imageId);
+            const currentRotation = (parseInt(img.getAttribute('data-rotation') || '0') + 90) % 360;
+            img.style.transform = `rotate(${currentRotation}deg)`;
+            img.setAttribute('data-rotation', currentRotation);
+        }
+
+        function validateClass(place, newClass) {
+            fetch('/static/uploads/database.txt')
+                .then(response => response.json())
+                .then(database => {
+                    // Find the entry to update
+                    const entryIndex = database.findIndex(entry => 
+                        entry.file_name.startsWith(imageId) && entry.place === place
+                    );
+
+                    if (entryIndex === -1) {
+                        throw new Error('Entry not found');
+                    }
+
+                    // Update the classification
+                    database[entryIndex].class_result = newClass;
+                    database[entryIndex].valid_status = true;
+
+                    // Save back to database
+                    return fetch('/save_section', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            database: database,
+                            id: imageId,
+                            place: place,
+                            class: newClass
+                        })
+                    });
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showToast(data.error, 'danger');
+                    } else {
+                        showToast(`Classification updated to ${newClass}`, 'success');
+                        // Update the badge in the UI
+                        const cards = document.querySelectorAll('.crop-card');
+                        cards.forEach(card => {
+                            const badge = card.querySelector('.badge:last-child');
+                            if (badge && card.querySelector(`[onclick*="validateClass(${place},"]`)) {
+                                badge.className = `badge bg-${getClassColor(newClass)}`;
+                                badge.textContent = newClass;
+                            }
+                        });
+                        // Update summary counts
+                        loadDetails();
+                    }
+                })
+                .catch(error => {
+                    showToast('Error updating classification: ' + error, 'danger');
+                });
+        }
+
+        function toggleGridView() {
+            const grid = document.getElementById('cropGrid');
+            grid.classList.toggle('list-view');
+        }
+
+        function downloadAllCrops() {
+            fetch('/static/uploads/database.txt')
+                .then(response => response.json())
+                .then(database => {
+                    const cropEntries = database.filter(entry => 
+                        entry.file_name.startsWith(imageId) && 
+                        typeof entry.place === 'number' && 
+                        entry.place > 0
+                    );
+                    
+                    cropEntries.forEach(crop => {
+                        const link = document.createElement('a');
+                        link.href = `/static/uploads/${crop.file_name}`;
+                        link.download = `crop_${crop.place}_${crop.class_result}.jpg`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    });
+                })
+                .catch(error => {
+                    showToast('Error downloading crops: ' + error, 'danger');
+                });
+        }
+
+        function downloadAllImages() {
+            downloadImage('originalImage');
+            setTimeout(() => downloadImage('detectionImage'), 500);
+            setTimeout(() => downloadAllCrops(), 1000);
+        }
+
+        function showAnalytics() {
+            alert('Analytics feature coming soon!');
+        }
+
+        function exportReport() {
+            alert('Report export feature coming soon!');
+        }
+
+        function showToast(message, type = 'success') {
+            alert(message);
+        }
+
+        async function validateCrop(imageId, place) {
+            try {
+                const response = await fetch('/update_valid_status', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        image_id: imageId,
+                        place: parseInt(place)
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    try {
+                        const errorJson = JSON.parse(errorText);
+                        throw new Error(errorJson.error || 'Server error');
+                    } catch (e) {
+                        throw new Error('Server error: ' + errorText);
+                    }
+                }
+
+                const data = await response.json();
+                if (data.success) {
+                    showToast('Validation successful');
+                    // Reload the details to update the UI
+                    loadDetails();
+                } else {
+                    showToast(data.error || 'Failed to validate', 'error');
+                }
+            } catch (error) {
+                console.error('Validation error:', error);
+                showToast('Error: ' + error.message, 'error');
+            }
+        }
+
+        // Load details when page loads
+        loadDetails();
+    </script>
+</body>
+</html>
