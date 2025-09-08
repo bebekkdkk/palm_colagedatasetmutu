@@ -6,3 +6,5 @@ pathlib==1.0.1
 python-dateutil==2.8.2
 werkzeug==2.2.3
 requests==2.31.0
+supabase==2.18.1
+dotenv
